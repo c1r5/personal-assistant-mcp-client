@@ -41,3 +41,19 @@ Este projeto implementa um cliente de assistente pessoal utilizando o protocolo 
 ## Observações
 - Para funcionamento das ferramentas, configure corretamente as variáveis de ambiente e o arquivo `.vscode/mcp.json`.
 - Consulte o código de cada servidor em `servers/` para detalhes de uso e parâmetros.
+
+## Utilização com Docker
+
+Este projeto pode ser executado facilmente utilizando Docker. Siga os passos abaixo para buildar e rodar o ambiente:
+
+### DEV
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build --watch
+```
+
+### PROD
+
+```bash
+docker compose -f docker-compose.yml --build
+```

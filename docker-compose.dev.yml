@@ -7,5 +7,13 @@ services:
       - ./.env
     develop:
       watch:
-        - path: .
+        - path: ./modules/
+          action: rebuild
+        - path: ./main.py
+          action: rebuild
+        - path: ./docker-compose.yml
+          action: rebuild
+        - path: ./docker-compose.dev.yml
+          action: rebuild
+        - path: ./Dockerfile
           action: rebuild
