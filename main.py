@@ -16,7 +16,10 @@ from modules.clients.llm_service import LLMService
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-model = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
+model = ChatGoogleGenerativeAI(
+    model="gemini-1.5-pro-002",
+    temperature=0.75
+)
 
 chatbot_service = ChatbotService(getenv("CHAT_SERVICE_URL", "ws://localhost:8000/ws/chat"))
 
