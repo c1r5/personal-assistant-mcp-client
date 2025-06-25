@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Union
 from pydantic import ValidationError
 import websockets
 
-from .models import UserMessage  # Assuming UserMessage is defined in models.py
+from .models import BotMessage, UserMessage  # Assuming UserMessage is defined in models.py
 
 logger = __import__('logging').getLogger(__name__)
 
@@ -28,19 +28,31 @@ class ChatbotService:
         except Exception as e:
             logger.error(f"WebSocket connection closed: {e}")
 
-    async def add_on_message_listener(self, listener: MessageListener):
+    def add_on_message_listener(self, listener: MessageListener):
         """Add a listener for incoming messages."""
         self.__on_message_listeners.append(listener)
         
     async def handle_message(self, message: str):
         try:
-            user_message = UserMessage.model_validate(message)
+            user_message = UserMessage.model_validate_json(message)
             for listener in self.__on_message_listeners:
                 await listener(user_message)
         except ValidationError as e:
             logger.error(f"Error parsing message: {e}")
             return
 
+    async def send_message(self, message: BotMessage):
+        """Send a message to the WebSocket server."""
+        if not hasattr(self, 'ws'):
+            logger.error("WebSocket connection is not established")
+            return
+        
+        try:
+            await self.ws.send(message.model_dump_json())
+            logger.info(f"Sent message: {message}")
+        except Exception as e:
+            logger.error(f"Failed to send message: {e}")
+    
     async def close(self):
         if self.ws:
             await self.ws.close()

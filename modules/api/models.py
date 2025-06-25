@@ -3,4 +3,9 @@ from pydantic import BaseModel
 
 class UserMessage(BaseModel):
     message_id: int
-    message: Optional[str] = None 
+    message: str
+    
+    
+class BotMessage(BaseModel):
+    message: str
+    reply_to_message_id: Optional[int] = None
