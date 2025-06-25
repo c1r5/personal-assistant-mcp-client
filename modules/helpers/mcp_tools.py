@@ -1,21 +1,26 @@
 import json
+import os
 
 from mcp import StdioServerParameters
-
 from modules.models import SSEServerParameters
 
 logger = __import__('logging').getLogger(__name__)
 
 def load_mcp_tool_from_file() -> list[SSEServerParameters | StdioServerParameters]:
     try:
-        with open("mcp.json", "r") as file:
-            mcp_tools = json.load(file)
+        with open(".vscode/mcp.json", "r") as file:
+            mcp_tools = json.load(file)["servers"]
             tools_names = mcp_tools.keys()
             tools = []
             for tool_name in tools_names:
                 tool_data = mcp_tools[tool_name]
                 tool_type = tool_data.get("type", "stdio")
+                environment = tool_data.get("env", {})
                 
+                for key, value in environment.items():
+                    if isinstance(value, str):
+                        os.environ[key] = value
+                        
                 match tool_type:
                     case "stdio":
                         tools.append(StdioServerParameters(
@@ -35,4 +40,12 @@ def load_mcp_tool_from_file() -> list[SSEServerParameters | StdioServerParameter
         return tools
     except FileNotFoundError:
         logger.error("mcp.json file not found. Please ensure it exists in the current directory.")
+        return []
+    
+    except json.JSONDecodeError as e:
+        logger.error(f"Error decoding JSON from mcp.json: {e}")
+        return []
+    
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while loading MCP tools: {e}")
         return []
