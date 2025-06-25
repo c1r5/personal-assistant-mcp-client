@@ -6,14 +6,13 @@ import logging
 import signal
 
 from os import getenv
+from anyio import Path
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from modules.api.chatbot_service import ChatbotService
 from modules.clients.chatbot_client import ChatBotClient
 from modules.clients.llm_service import LLMService
 
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 model = ChatGoogleGenerativeAI(
@@ -52,6 +51,11 @@ async def main ():
         await chatbot_service.close()
         
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, 
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+
     chatbot_service.add_on_message_listener(chatbot_client.on_message)
     chatbot_client.add_on_response_listener(chatbot_service.send_message)
     

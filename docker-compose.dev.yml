@@ -1,0 +1,11 @@
+services:
+  personal-assistant-mcp-client:
+    build: .
+    volumes:
+      - ./:/app
+    env_file:
+      - ./.env
+    develop:
+      watch:
+        - path: .
+          action: rebuild
