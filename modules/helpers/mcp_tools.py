@@ -18,8 +18,7 @@ def load_mcp_tool_from_file() -> list[SSEServerParameters | StdioServerParameter
                 environment = tool_data.get("env", {})
                 
                 for key, value in environment.items():
-                    if isinstance(value, str):
-                        os.environ[key] = value
+                    os.environ[key] = value 
                         
                 match tool_type:
                     case "stdio":
