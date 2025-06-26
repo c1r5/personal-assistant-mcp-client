@@ -1,11 +1,8 @@
 import json
-import os
-
-from mcp import StdioServerParameters
 
 logger = __import__('logging').getLogger(__name__)
 
-def load_mcp_tool_from_file() -> dict:
+def load_mcp_servers() -> dict:
     tools = {}
     
     try:
@@ -14,14 +11,15 @@ def load_mcp_tool_from_file() -> dict:
             tools_names = mcp_tools.keys()
             
         for tool_name in tools_names:
-            tool_data = mcp_tools[tool_name]
-            tool_data["transport"] = tool_data.pop("type")
+            tool_data: dict[str, str] = mcp_tools[tool_name]
+            tool_data['transport'] = 'streamable_http' if tool_data['type'] == "http" else tool_data.pop('type')
+            tool_data.pop('type', '<default>')
             tools[tool_name] = tool_data
     except FileNotFoundError:
         logger.error("mcp.json file not found. Please ensure it exists in the current directory.")
     except json.JSONDecodeError as e:
         logger.error(f"Error decoding JSON from mcp.json: {e}")
     except Exception as e:
-        logger.error(f"An unexpected error occurred while loading MCP tools: {e}")
+        logger.exception(e)
     finally:
         return tools
