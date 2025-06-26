@@ -1,13 +1,13 @@
 from typing import Any, Awaitable, Callable, Union
 from modules.api.models import BotMessage, UserMessage
-from modules.clients.llm_service import LLMService
+from modules.clients.mcp_client import MCPClient
 
 ResponseListener = Callable[[BotMessage], Union[Awaitable[Any], Any]]
 
 class ChatBotClient:
     __on_response_listeners: list[ResponseListener] = []
     
-    def __init__(self, llm: LLMService):
+    def __init__(self, llm: MCPClient):
         self.llm = llm
         
     def add_on_response_listener(self, listener: ResponseListener):

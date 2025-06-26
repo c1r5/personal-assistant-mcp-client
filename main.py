@@ -11,7 +11,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from modules.api.chatbot_service import ChatbotService
 from modules.clients.chatbot_client import ChatBotClient
-from modules.clients.llm_service import LLMService
+from modules.clients.mcp_client import MCPClient
+from modules.services.mcp_server_service import MCPServerService
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,9 @@ model = ChatGoogleGenerativeAI(
 )
 
 chatbot_service = ChatbotService(getenv("CHAT_SERVICE_URL", "ws://localhost:8000/ws/chat"))
-
-llm_client = LLMService(model)
-chatbot_client = ChatBotClient(llm_client)
+mcp_server_service = MCPServerService()
+mcp_client = MCPClient(model, mcp_server_service)
+chatbot_client = ChatBotClient(mcp_client)
 
 
 async def main ():
@@ -37,15 +38,16 @@ async def main ():
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, shutdown)
 
-    chatbot_task = asyncio.create_task(chatbot_service.start_chatbot())
-
+    start_chatbot = asyncio.create_task(chatbot_service.start_chatbot())
+    load_mcp_tools = asyncio.create_task(mcp_client.load_tools())
+        
     await stop_event.wait()
 
     print("Cancelando tarefas...")
-    chatbot_task.cancel()
+    start_chatbot.cancel()
 
     try:
-        await asyncio.gather(chatbot_task)
+        await asyncio.gather(load_mcp_tools, start_chatbot)
     except asyncio.CancelledError:
         print("Tarefas canceladas com sucesso.")
         await chatbot_service.close()

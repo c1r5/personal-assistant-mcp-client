@@ -1,5 +1,4 @@
-from modules.helpers.mcp_servers import load_mcp_servers
+from modules.services.mcp_server_service import MCPServerService
 
-tools = load_mcp_servers()
+mcp_server_service = MCPServerService()
 
-print(tools)
