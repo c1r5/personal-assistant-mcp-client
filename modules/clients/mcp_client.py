@@ -16,77 +16,98 @@ class MCPClient:
     
     async def load_tools(self):
         logger.info("Carregando ferramentas...")
-        self.tools: list[BaseTool] = await self.client.get_tools()
-        if not self.tools:
-            logger.error("Nenhuma ferramenta MCP foi carregada com sucesso.")
-        logger.info(f"Total de ferramentas carregadas: {len(self.tools)}")
+        self.tools: list[BaseTool] = []
+        self.server_name_by_tool_name = {}
         
+        for server_name in self.client.connections.keys():
+            tools = await self.client.get_tools(server_name=server_name)
+            self.tools.extend(tools)
+            
+            for tool in tools:
+                self.server_name_by_tool_name[tool.name] = server_name
+                
+        if not self.tools:
+            logger.error("Nenhuma ferramenta MCP foi carregada.")
+        logger.info(f"Total de ferramentas carregadas: {len(self.tools)}")
+
     async def generate_llm_response(self, message: str) -> str | None:
         self.history.append({"role": "user", "content": message})
         self.history = self.history[-100:]
         
         messages = self.history.copy()
-        
-        agent = create_react_agent(self.model, self.tools, prompt="""
-                You are a helpful assistant with access to various tools. 
-                Choose the appropriate tool based on the user's question. 
-                If no tool is needed, reply directly.
-                Reply requirements:
-                1. Reply according to user prompt language
 
-                After receiving a tool's response:
-                1. Transform the raw data into a natural, conversational response
-                2. Keep responses concise but informative
-                3. Focus on the most relevant information
-                4. Use appropriate context from the user's question
-                5. Avoid simply repeating the raw data
-        """.strip())
+        messages.append({
+            "role": "system",
+            "content": """
+                You are a helpful assistant with access to tools.
+
+                Your role is to decide the best tool to use based on the user's question, even if the user doesn't provide all the necessary arguments directly.
+
+                Important guidelines:
+
+                1. **Always select the most appropriate tool** based on the user's intent, even if not all parameters are available yet.
+                2. Do **not ask the user for missing arguments immediately** — first attempt to call the tool.
+                3. Parameters may be inferred from:
+                - Previously known context
+                - System messages
+                - Loaded resources
+                4. Only if a required parameter is missing after trying to call the tool, then you may ask the user.
+                5. After receiving the tool’s response, generate a friendly and concise reply summarizing the result.
+                6. Respond in the same language as the user's message.
+
+                Let the tool execution determine if arguments are missing — do not block tool calls preemptively.
+            """.strip()
+        })
+        
+        agent = create_react_agent(self.model, self.tools)
         
         try:
-            # Executa e intercepta eventos
             steps = []
+            tool_used = None
+
+            # Etapa 2 — Rodar o agente até a escolha da ferramenta
             async for event in agent.astream_events({"messages": messages}, config=RunnableConfig(tags=["intercept"])):
                 steps.append(event)
-            
-            tool_used = None
-            for s in steps:
-                logger.info(f"STEP: {s}")
-            #     if s.get("event") == "on_tool_start":
-            #         tool_used = s["name"]  
-            #         break
+                if event.get("event") == "on_tool_start":
+                    tool_used = event["name"]
+                    break 
 
-            # if tool_used:
-            #     namespace = tool_used.split(".")[0]
-            #     logger.info(f"Ferramenta escolhida pertence ao servidor: {namespace}")
+            if tool_used:
+                # Etapa 3 — Carregar os recursos do servidor MCP correspondente
+                namespace = self.server_name_by_tool_name[tool_used]
+                logger.info(f"Ferramenta escolhida: {tool_used} (servidor: {namespace})")
 
-            #     resources = await self.client.get_resources(namespace)
-            #     logger.info(f"Resources: {resources}")
-                # matching = [r for r in resources if r.uri.startswith(f"{namespace}://")]
-                # loaded_resources = {
-                #     r.uri: await self.client.load_resource(r.uri)
-                #     for r in matching
-                # }
+                resources = await self.client.get_resources(namespace)
+                logger.info(f"Recursos carregados do servidor '{namespace}': {resources}")
 
-                # logger.info(f"Recursos carregados: {loaded_resources}")
+                resource_context = "\n".join(
+                    f"resource: {r.data}" for r in resources
+                )
 
-            chunks = [s["data"] for s in steps if s.get("event") == "on_chat_model_stream"]
-            if not chunks or chunks == []:
-                logger.warning("Nenhuma mensagem final encontrada.")
-                return "Não consegui processar sua solicitação."
+                # Etapa 4 — Injetar os recursos no histórico como system message
+                messages.append({
+                    "role": "system",
+                    "content": f"Use these resources when calling the tool '{tool_used}':\n{resource_context}"
+                })
 
-            final_msg = str()
-            
-            for chunk in chunks:
-                if "chunk" in chunk:
-                    final_msg += chunk['chunk'].content
-                
-            
-            if not final_msg == "":
+            agent = create_react_agent(self.model, self.tools)
+            steps_final = []
+
+            async for event in agent.astream_events({"messages": messages}, config=RunnableConfig(tags=["intercept"])):
+                steps_final.append(event)
+
+            # Etapa 6 — Extrair a resposta final do modelo
+            chunks = [s["data"] for s in steps_final if s.get("event") == "on_chat_model_stream"]
+
+            final_msg = "".join(chunk["chunk"].content for chunk in chunks if "chunk" in chunk)
+
+            if final_msg:
                 self.history.append({"role": "assistant", "content": final_msg})
                 return final_msg
 
-            return "Erro ao processar resposta"
-        
+            logger.warning("Nenhuma resposta final encontrada.")
+            return "Não consegui gerar uma resposta adequada."
+
         except Exception as e:
             logger.exception(f"Erro ao invocar agente: {e}")
             return "Ocorreu um erro ao tentar gerar a resposta."
