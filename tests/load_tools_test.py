@@ -16,7 +16,7 @@ mcp_client = MCPClient(model, mcp_server_service)
 
 
 async def test_load_tools():
-    await mcp_client.load_tools()
+    await mcp_client.load_tools_and_resources()
     ...
         
     
