@@ -20,35 +20,27 @@ class MCPClient:
         self.resources_by_server = {}
 
     async def load_tools_and_resources(self):
-        """
-        Loads all tools and their corresponding resources from all connected MCP servers.
-        This method should be called after initializing the client.
-        """
         logger.info("Carregando ferramentas e recursos dos servidores MCP...")
         
         server_names = list(self.client.connections.keys())
         if not server_names:
             logger.warning("Nenhum servidor MCP conectado.")
             return
-
-        # Fetch tools and resources from all servers concurrently
-        # Use return_exceptions=True to prevent a single failed task from stopping all others
+        
         tool_tasks = [self.client.get_tools(server_name=name) for name in server_names]
         resource_tasks = [self.client.get_resources(server_name=name) for name in server_names]
 
         all_results = await asyncio.gather(
             *tool_tasks,
             *resource_tasks,
-            return_exceptions=True # This is the key change
+            return_exceptions=True 
         )
 
-        # Separate tool results and resource results
         num_servers = len(server_names)
         tool_results = all_results[:num_servers]
         resource_results = all_results[num_servers:]
 
         for i, server_name in enumerate(server_names):
-            # Process tools
             tools = tool_results[i]
             if isinstance(tools, Exception):
                 logger.error(f"Erro ao carregar ferramentas do servidor '{server_name}': {tools}")
@@ -57,10 +49,8 @@ class MCPClient:
                 for tool in tools: # type: ignore
                     self.server_name_by_tool_name[tool.name] = server_name
             
-            # Process and store resources
             resources = resource_results[i]
             if isinstance(resources, Exception):
-                # Specifically handle McpError for "Method not found"
                 if isinstance(resources, McpError) and "Method not found" in str(resources):
                     logger.warning(f"Servidor '{server_name}' não suporta listagem de recursos (Method not found). Ignorando recursos para este servidor.")
                 else:

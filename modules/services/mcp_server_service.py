@@ -19,12 +19,18 @@ class MCPServerService:
 
             for tool_name in tools_names:
                 tool_data: dict[str, str] = mcp_tools[tool_name]
-                tool_data["transport"] = (
-                    "streamable_http"
-                    if tool_data["type"] == "http"
-                    else tool_data.pop("type")
-                )
-                tool_data.pop("type", "<default>")
+                transport_type = tool_data.pop("type")
+                
+                match transport_type:
+                    case "stdio":
+                        tool_data["transport"] = "stdio"
+                    case "http":
+                        tool_data["transport"] = "streamable_http"
+                    case "sse":
+                        tool_data["transport"] = "sse"
+                    case _:
+                        tool_data["transport"] = transport_type
+                        
                 self.mcp_servers[tool_name] = tool_data
         except FileNotFoundError:
             logger.error(
