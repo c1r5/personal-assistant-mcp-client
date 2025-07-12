@@ -5,7 +5,9 @@ services:
       - ./.env
     develop:
       watch:
-        - path: ./modules/
+        - path: ./assistant_agent/
+          action: rebuild
+        - path: ./chatbot/
           action: rebuild
         - path: ./main.py
           action: rebuild
